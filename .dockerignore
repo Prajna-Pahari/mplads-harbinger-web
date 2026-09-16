@@ -1,0 +1,16 @@
+node_extracted/
+node.zip
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.git/
+.gitignore
+.env
+.venv/
+env/
+venv/
+frontend/node_modules/
+frontend/dist/
+database/
+*.db

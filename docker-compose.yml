@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  mplads-sentinel:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mplads-sentinel
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - CORS_ORIGINS=*
+    volumes:
+      - ./data:/app/data
+      - sentinel-data:/app/database
+    restart: unless-stopped
+
+volumes:
+  sentinel-data:
