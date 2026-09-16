@@ -78,9 +78,10 @@ export default function ProjectInvestigationPage() {
 
   // Score bar data
   const scoreData = [
-    { label: 'Schedule Deviation', score: project.schedule_score || 0, weight: '35%' },
-    { label: 'Financial vs Progress', score: project.financial_score || 0, weight: '40%' },
-    { label: 'Peer Outlier', score: project.peer_score || 0, weight: '25%' },
+    { label: 'Schedule Deviation', score: project.schedule_score || 0, weight: '30%' },
+    { label: 'Financial Utilisation', score: project.financial_score || 0, weight: '30%' },
+    { label: 'Peer Outlier', score: project.peer_score || 0, weight: '20%' },
+    { label: 'Financial–Physical Divergence', score: project.divergence_score || 0, weight: '20%' },
   ]
 
   // Peer stats
@@ -304,9 +305,10 @@ export default function ProjectInvestigationPage() {
           <div className="card bg-canvas-soft border-hairline-soft !p-4 sm:!p-5">
             <p className="font-bold text-[14px] mb-2 text-ink">Risk Engine Calculation Trace</p>
             <div className="font-mono text-[11px] sm:text-[12px] text-muted flex flex-col gap-1 overflow-x-auto">
-              <p>Schedule Score: {project.schedule_score?.toFixed(1) || '0'} × 35% = {((project.schedule_score || 0) * 0.35).toFixed(2)}</p>
-              <p>Financial Score: {project.financial_score?.toFixed(1) || '0'} × 40% = {((project.financial_score || 0) * 0.40).toFixed(2)}</p>
-              <p>Peer Score: {project.peer_score?.toFixed(1) || '0'} × 25% = {((project.peer_score || 0) * 0.25).toFixed(2)}</p>
+              <p>Schedule Score: {project.schedule_score?.toFixed(1) || '0'} × 30% = {((project.schedule_score || 0) * 0.30).toFixed(2)}</p>
+              <p>Financial Score: {project.financial_score?.toFixed(1) || '0'} × 30% = {((project.financial_score || 0) * 0.30).toFixed(2)}</p>
+              <p>Peer Score: {project.peer_score?.toFixed(1) || '0'} × 20% = {((project.peer_score || 0) * 0.20).toFixed(2)}</p>
+              <p>Divergence Score: {project.divergence_score?.toFixed(1) || '0'} × 20% = {((project.divergence_score || 0) * 0.20).toFixed(2)}</p>
               <p className="border-t border-hairline-soft mt-1 pt-1 font-semibold text-ink">
                 Final Score: {project.final_score?.toFixed(2) || '0'} → Level: {project.risk_level || 'UNKNOWN'}
               </p>

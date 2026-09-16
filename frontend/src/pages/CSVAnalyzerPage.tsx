@@ -312,7 +312,7 @@ export default function CSVAnalyzerPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div>
               <p className="font-bold text-[16px]">Column Mapping</p>
-              <p className="font-caption text-muted">Confirm mappings between your CSV headers and Sentinel fields.</p>
+              <p className="font-caption text-muted">Confirm mappings between your CSV headers and HARBINGER fields.</p>
             </div>
             <div className="flex items-center gap-2">
               <button onClick={() => setStep(2)} className="btn-soft btn-sm gap-1"><ArrowLeft size={14} /> Back</button>
@@ -420,7 +420,7 @@ export default function CSVAnalyzerPage() {
         <div className="card !p-8 text-center">
           <LoadingState label={
             step === 5 ? 'Normalising data & formatting dates…' :
-            step === 6 ? 'Executing 3-tier risk engine analysis…' :
+            step === 6 ? 'Executing 4-signal risk analysis…' :
             'Generating explainable AI narratives…'
           } />
           <p className="font-caption text-muted mt-4">

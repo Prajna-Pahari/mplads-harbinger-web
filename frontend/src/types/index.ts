@@ -1,4 +1,4 @@
-// TypeScript types for MPLADS Sentinel
+// TypeScript types for MPLADS HARBINGER
 
 export interface Dataset {
   id: number
@@ -39,6 +39,7 @@ export interface Project {
   schedule_score?: number
   financial_score?: number
   peer_score?: number
+  divergence_score?: number
   final_score?: number
   risk_level?: 'HIGH' | 'MEDIUM' | 'LOW'
   primary_signal?: string
@@ -154,6 +155,7 @@ export interface Settings {
   schedule_weight: string
   financial_weight: string
   peer_weight: string
+  divergence_weight?: string
   peer_min_group_size: string
 }
 

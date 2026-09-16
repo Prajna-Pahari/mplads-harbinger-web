@@ -7,9 +7,10 @@ import { Check, Sliders, Shield } from 'lucide-react'
 const SETTING_LABELS: Record<string, { label: string; description: string; type: 'number' | 'percent' }> = {
   risk_low_threshold: { label: 'Low Risk Threshold', description: 'Scores below this value are classified as LOW risk (default: 40)', type: 'number' },
   risk_medium_threshold: { label: 'Medium Risk Threshold', description: 'Scores between low and medium threshold are MEDIUM risk (default: 70)', type: 'number' },
-  schedule_weight: { label: 'Schedule Deviation Weight', description: 'Relative weight for project timeline overrun score (default: 0.35)', type: 'percent' },
-  financial_weight: { label: 'Financial-Progress Weight', description: 'Relative weight for expenditure vs physical progress mismatch (default: 0.40)', type: 'percent' },
-  peer_weight: { label: 'Peer Outlier Weight', description: 'Relative weight for statistical Z-score outlier comparison (default: 0.25)', type: 'percent' },
+  schedule_weight: { label: 'Schedule Deviation Weight', description: 'Relative weight for project timeline overrun score (default: 0.30)', type: 'percent' },
+  financial_weight: { label: 'Financial Utilisation Weight', description: 'Relative weight for fund absorption velocity score (default: 0.30)', type: 'percent' },
+  peer_weight: { label: 'Peer Outlier Weight', description: 'Relative weight for statistical Z-score outlier comparison (default: 0.20)', type: 'percent' },
+  divergence_weight: { label: 'Financial–Physical Divergence Weight', description: 'Relative weight for financial expenditure outpacing physical progress (default: 0.20)', type: 'percent' },
   peer_min_group_size: { label: 'Minimum Peer Group Size', description: 'Minimum number of comparable works in category required for peer score (default: 3)', type: 'number' },
 }
 
@@ -47,7 +48,8 @@ export default function SettingsPage() {
   const totalWeight = (
     parseFloat(edited.schedule_weight || '0') +
     parseFloat(edited.financial_weight || '0') +
-    parseFloat(edited.peer_weight || '0')
+    parseFloat(edited.peer_weight || '0') +
+    parseFloat(edited.divergence_weight || '0')
   )
   const weightsValid = Math.abs(totalWeight - 1) < 0.01
 
@@ -94,7 +96,7 @@ export default function SettingsPage() {
         <p className="font-bold text-[15px] sm:text-[16px] text-ink mb-0.5">Scoring Model Weights</p>
         <p className="font-caption text-muted mb-5">Combined total must sum to exactly 1.0 (100%).</p>
         <div className="flex flex-col gap-4 sm:gap-5">
-          {['schedule_weight', 'financial_weight', 'peer_weight'].map(key => (
+          {['schedule_weight', 'financial_weight', 'peer_weight', 'divergence_weight'].map(key => (
             <div key={key} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-hairline-soft pb-3 last:border-0">
               <div>
                 <label className="font-label text-ink block mb-0.5 text-xs">{SETTING_LABELS[key].label}</label>

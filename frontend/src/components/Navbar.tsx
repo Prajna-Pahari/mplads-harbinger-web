@@ -52,7 +52,7 @@ export default function Navbar() {
     <>
       {/* Announcement bar */}
       <div className="announcement-bar">
-        <span>MPLADS SENTINEL · EXPLAINABLE RISK INTELLIGENCE</span>
+        <span>MPLADS HARBINGER · EXPLAINABLE RISK INTELLIGENCE</span>
         <span className="hidden sm:inline mx-2 opacity-40">·</span>
         <span className="hidden sm:inline opacity-70">PROTOTYPE</span>
       </div>
@@ -66,7 +66,7 @@ export default function Navbar() {
               <Shield size={16} />
             </div>
             <span className="font-bold text-ink text-[14px] sm:text-[15px] tracking-tight">
-              MPLADS SENTINEL
+              MPLADS HARBINGER
             </span>
           </NavLink>
 
@@ -150,7 +150,7 @@ export default function Navbar() {
             <div className="p-4 border-b border-hairline-soft flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Shield size={18} className="text-ink" />
-                <span className="font-bold text-ink text-sm">MPLADS Sentinel</span>
+                <span className="font-bold text-ink text-sm">MPLADS HARBINGER</span>
               </div>
               <button
                 onClick={() => setMobileOpen(false)}

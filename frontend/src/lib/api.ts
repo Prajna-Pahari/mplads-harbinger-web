@@ -1,4 +1,4 @@
-// API client for MPLADS Sentinel backend
+// API client for MPLADS HARBINGER backend
 
 const API_HOST = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '')
 const BASE = `${API_HOST}/api`

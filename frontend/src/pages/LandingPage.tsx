@@ -5,7 +5,7 @@ import Footer from '../components/Footer'
 const STEPS = [
   { num: '01', label: 'DATA INGESTION', desc: 'Project data enters via official records, eSAKSHI integration, or batch sync.' },
   { num: '02', label: 'NORMALISATION', desc: 'Columns are mapped, validated, cleaned, and scored for data quality.' },
-  { num: '03', label: '3-TIER CHECKS', desc: 'Schedule deviation · Financial-progress alignment · Peer outlier z-scores.' },
+  { num: '03', label: '4-SIGNAL CHECKS', desc: 'Schedule deviation · Financial utilisation · Peer outlier · Divergence (DIV-001).' },
   { num: '04', label: 'RISK SCORING', desc: 'Transparent 0–100 composite risk score calculated with configurable weights.' },
   { num: '05', label: 'HUMAN REVIEW', desc: 'Officials verify evidence and record actions with complete audit trails.' },
 ]
@@ -14,7 +14,7 @@ const PRINCIPLES = [
   {
     icon: <BarChart2 size={18} />,
     title: 'Multi-Signal',
-    desc: 'Combines schedule, financial, and peer signals into one weighted risk score.',
+    desc: 'Combines schedule, financial, peer outlier, and divergence signals into one weighted risk score.',
   },
   {
     icon: <Users size={18} />,
@@ -49,7 +49,7 @@ export default function LandingPage() {
                 MPLADS RISK INTELLIGENCE
               </div>
               <h1 className="font-heading-1 text-ink mb-4 sm:mb-6">
-                MPLADS<br className="hidden sm:inline" /> Sentinel.
+                MPLADS<br className="hidden sm:inline" /> HARBINGER.
               </h1>
               <p className="font-body-lg text-muted mb-6 sm:mb-8 max-w-lg">
                 Combine project data, rule-based checks, and anomaly detection to identify unusual works,
@@ -66,7 +66,7 @@ export default function LandingPage() {
                   onClick={() => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })}
                   className="btn-soft btn-lg w-full sm:w-auto"
                 >
-                  How Sentinel Works
+                  How HARBINGER Works
                 </button>
               </div>
             </div>
@@ -102,8 +102,9 @@ export default function LandingPage() {
                   <div className="flex flex-col gap-1.5 sm:gap-2">
                     {[
                       { label: 'Schedule Deviation (6 mo. delay)', active: true },
-                      { label: 'Financial-Progress Mismatch', active: true },
-                      { label: 'Peer Group Outlier (Z = +2.4)', active: true },
+                      { label: 'Financial Utilisation (Slow absorption)', active: true },
+                      { label: 'Peer Group Outlier (Z = +2.4σ)', active: true },
+                      { label: 'Financial–Physical Divergence (DIV-001: 37 pp gap)', active: true },
                     ].map(sig => (
                       <div key={sig.label} className="flex items-center gap-2">
                         <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#b30000', flexShrink: 0 }} />
@@ -120,10 +121,13 @@ export default function LandingPage() {
                       <span className="text-white font-semibold">01</span> — Project has exceeded its planned duration by 6 months.
                     </p>
                     <p className="text-white/70 text-[12px] sm:text-[13px] leading-relaxed">
-                      <span className="text-white font-semibold">02</span> — Financial utilisation (72%) is high relative to physical progress (55%).
+                      <span className="text-white font-semibold">02</span> — Disproportionately low fund absorption against elapsed timeline.
                     </p>
                     <p className="text-white/70 text-[12px] sm:text-[13px] leading-relaxed">
                       <span className="text-white font-semibold">03</span> — Differs significantly from comparable road works in region (peer median: 48%).
+                    </p>
+                    <p className="text-white/70 text-[12px] sm:text-[13px] leading-relaxed">
+                      <span className="text-white font-semibold">04</span> — Financial utilisation (92%) substantially outpaces physical progress (55%) with a 37 pp divergence gap (DIV-001).
                     </p>
                   </div>
                   <div className="mt-3 pt-2.5 border-t border-white/10">
@@ -143,14 +147,14 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─── How Sentinel Works ─────────────────────────────────── */}
+      {/* ─── How HARBINGER Works ─────────────────────────────────── */}
       <section id="how-it-works" className="section" style={{ background: '#071829' }}>
         <div className="container">
           <div className="text-center mb-8 sm:mb-14">
             <p className="font-label uppercase tracking-widest mb-2 sm:mb-3" style={{ color: 'rgba(255,255,255,0.45)' }}>
               METHODOLOGY
             </p>
-            <h2 className="font-heading-2 text-white">How Sentinel Works.</h2>
+            <h2 className="font-heading-2 text-white">How HARBINGER Works.</h2>
           </div>
 
           {/* Desktop horizontal / Mobile vertical step flow */}
@@ -223,7 +227,7 @@ export default function LandingPage() {
                   ))}
                 </div>
                 <div className="p-4 rounded-xl bg-white/10 border border-white/10">
-                  <p className="font-semibold text-emerald-300 text-[10px] sm:text-[11px] uppercase tracking-widest mb-2.5">AFTER SENTINEL</p>
+                  <p className="font-semibold text-emerald-300 text-[10px] sm:text-[11px] uppercase tracking-widest mb-2.5">AFTER HARBINGER</p>
                   {['AI-assisted analysis', 'Proactive prioritisation', 'Unified risk queue', 'Transparent evidence'].map(t => (
                     <div key={t} className="flex items-center gap-2 mb-1.5">
                       <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />

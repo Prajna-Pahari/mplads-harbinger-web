@@ -32,7 +32,7 @@ export default function Footer() {
               <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-white">
                 <Shield size={16} />
               </div>
-              <span className="font-bold text-[14px] sm:text-[15px] tracking-tight">MPLADS SENTINEL</span>
+              <span className="font-bold text-[14px] sm:text-[15px] tracking-tight">MPLADS HARBINGER</span>
             </div>
             <p className="text-[13px] text-faint leading-relaxed">
               Explainable Risk Intelligence for MPLADS Monitoring.
@@ -65,7 +65,7 @@ export default function Footer() {
 
         <div className="border-t border-white/10 mt-10 sm:mt-12 pt-6 sm:pt-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-left sm:text-left">
           <p className="text-[11px] sm:text-[12px] text-faint">
-            © 2026 MPLADS Sentinel · Built by Team XYLOQ · SIH Problem 26102
+            © 2026 MPLADS HARBINGER · Built by Team XYLOQ · SIH Problem 26102
           </p>
           <p className="text-[11px] sm:text-[12px] text-faint">
             Prototype — Demonstration for Smart India Hackathon
