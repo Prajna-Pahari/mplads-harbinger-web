@@ -1,22 +1,29 @@
 """
 MPLADS Sentinel — Risk Service
-Orchestrates all three risk checks and produces final risk score.
+Orchestrates all four risk checks and produces final risk score.
+Checks:
+1. Schedule / Delay
+2. Financial / Utilisation
+3. Peer Outlier
+4. Financial–Physical Divergence
 """
 import json
 from typing import Dict, Any, List, Optional
 from backend.rules.schedule import calculate_schedule_score
 from backend.rules.financial import calculate_financial_score
 from backend.rules.peer import calculate_peer_score
+from backend.rules.divergence import calculate_divergence_score
 
 
-RISK_ENGINE_VERSION = "1.0"
+RISK_ENGINE_VERSION = "2.0"
 
 
 def get_weights(settings: Dict[str, str]) -> Dict[str, float]:
     return {
-        "schedule": float(settings.get("schedule_weight", 0.35)),
-        "financial": float(settings.get("financial_weight", 0.40)),
-        "peer": float(settings.get("peer_weight", 0.25)),
+        "schedule": float(settings.get("schedule_weight", 0.30)),
+        "financial": float(settings.get("financial_weight", 0.30)),
+        "peer": float(settings.get("peer_weight", 0.20)),
+        "divergence": float(settings.get("divergence_weight", 0.20)),
     }
 
 
@@ -37,13 +44,13 @@ def analyze_project(
     min_peer_group: int = 3,
 ) -> Dict[str, Any]:
     """
-    Run all three risk checks on a single project and return the full risk result.
+    Run all four risk checks on a single project and return the full risk result.
     Respects pre-calculated component scores if present in the project data.
     """
     weights = get_weights(settings)
     all_alerts = []
 
-    # Schedule Score
+    # 1. Schedule Score
     if project.get("schedule_score") is not None:
         s1 = float(project["schedule_score"])
     else:
@@ -51,7 +58,7 @@ def analyze_project(
         s1 = sch_result["score"]
         all_alerts.extend(sch_result["alerts"])
 
-    # Financial Score
+    # 2. Financial Score
     if project.get("financial_score") is not None:
         s2 = float(project["financial_score"])
     else:
@@ -59,7 +66,7 @@ def analyze_project(
         s2 = fin_result["score"]
         all_alerts.extend(fin_result["alerts"])
 
-    # Peer Score
+    # 3. Peer Score
     peer_stats = None
     peer_group_size = 0
     peer_group_desc = ""
@@ -73,23 +80,34 @@ def analyze_project(
         peer_group_size = peer_result.get("peer_group_size", 0)
         peer_group_desc = peer_result.get("peer_group_description", "")
 
-    # Final Score (No division, straight weighted sum)
+    # 4. Financial–Physical Divergence Score
+    if project.get("divergence_score") is not None:
+        s4 = float(project["divergence_score"])
+    else:
+        div_result = calculate_divergence_score(project)
+        s4 = div_result["score"]
+        all_alerts.extend(div_result["alerts"])
+
+    # Final Score (Straight weighted sum of all 4 components)
     final = (
         s1 * weights["schedule"]
         + s2 * weights["financial"]
         + s3 * weights["peer"]
+        + s4 * weights["divergence"]
     )
     final = round(min(100, final), 1)
     risk_level = classify_risk(final, settings)
 
-    # Generate Primary Signal based on component scores thresholds (e.g. >= 40 is MEDIUM concern)
+    # Generate Primary Signal based on component thresholds
     triggered_signals = []
     if s1 >= 40:
         triggered_signals.append("Schedule Deviation")
     if s2 >= 40:
-        triggered_signals.append("Financial-Progress")
+        triggered_signals.append("Financial Utilisation")
     if s3 >= 40:
         triggered_signals.append("Peer Outlier")
+    if s4 >= 28:
+        triggered_signals.append("Financial–Physical Divergence")
 
     primary_signal = " + ".join(triggered_signals) if triggered_signals else "None"
 
@@ -98,12 +116,14 @@ def analyze_project(
         "schedule_score": s1,
         "financial_score": s2,
         "peer_score": s3,
+        "divergence_score": s4,
         "final_score": final,
         "risk_level": risk_level,
         "primary_signal": primary_signal,
         "schedule_weight": weights["schedule"],
         "financial_weight": weights["financial"],
         "peer_weight": weights["peer"],
+        "divergence_weight": weights["divergence"],
         "alerts": all_alerts,
         "peer_stats": peer_stats,
         "peer_group_size": peer_group_size,

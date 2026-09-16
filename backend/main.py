@@ -131,16 +131,19 @@ def _ingest_csv(content: bytes, filename: str, dataset_type: str = "uploaded") -
 
         cur.execute(
             """INSERT INTO risk_scores
-               (project_id, dataset_id, schedule_score, financial_score, peer_score,
-                final_score, risk_level, primary_signal, schedule_weight, financial_weight, peer_weight)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+               (project_id, dataset_id, schedule_score, financial_score, peer_score, divergence_score,
+                final_score, risk_level, primary_signal, schedule_weight, financial_weight, peer_weight,
+                divergence_weight, risk_engine_version)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 proj_row_id, dataset_id,
                 risk.get("schedule_score", 0), risk.get("financial_score", 0),
-                risk.get("peer_score", 0), risk.get("final_score", 0),
-                risk.get("risk_level", "LOW"), risk.get("primary_signal", "None"),
-                risk.get("schedule_weight", 0.35), risk.get("financial_weight", 0.40),
-                risk.get("peer_weight", 0.25),
+                risk.get("peer_score", 0), risk.get("divergence_score", 0),
+                risk.get("final_score", 0), risk.get("risk_level", "LOW"),
+                risk.get("primary_signal", "None"),
+                risk.get("schedule_weight", 0.30), risk.get("financial_weight", 0.30),
+                risk.get("peer_weight", 0.20), risk.get("divergence_weight", 0.20),
+                risk.get("risk_engine_version", "2.0"),
             ),
         )
 
@@ -370,8 +373,8 @@ def list_projects(
     ).fetchone()[0]
 
     rows = conn.execute(
-        f"""SELECT p.*, rs.schedule_score, rs.financial_score, rs.peer_score,
-            rs.final_score, rs.risk_level, r.status as review_status, r.id as review_id
+        f"""SELECT p.*, rs.schedule_score, rs.financial_score, rs.peer_score, rs.divergence_score,
+            rs.final_score, rs.risk_level, rs.primary_signal, r.status as review_status, r.id as review_id
             FROM projects p
             LEFT JOIN risk_scores rs ON p.id=rs.project_id
             LEFT JOIN reviews r ON p.id=r.project_id
@@ -395,9 +398,9 @@ def list_projects(
 def get_project(project_id: int):
     conn = get_db()
     row = conn.execute(
-        """SELECT p.*, rs.schedule_score, rs.financial_score, rs.peer_score,
-           rs.final_score, rs.risk_level, rs.schedule_weight, rs.financial_weight,
-           rs.peer_weight, rs.analyzed_at as risk_analyzed_at,
+        """SELECT p.*, rs.schedule_score, rs.financial_score, rs.peer_score, rs.divergence_score,
+           rs.final_score, rs.risk_level, rs.primary_signal, rs.schedule_weight, rs.financial_weight,
+           rs.peer_weight, rs.divergence_weight, rs.risk_engine_version, rs.analyzed_at as risk_analyzed_at,
            r.status as review_status, r.id as review_id, r.priority, r.assigned_to
            FROM projects p
            LEFT JOIN risk_scores rs ON p.id=rs.project_id
@@ -481,8 +484,8 @@ def risk_queue(
         f"""SELECT p.id, p.project_id, p.project_name, p.state, p.district, p.category,
             p.sanctioned_amount, p.financial_utilisation, p.physical_progress,
             p.elapsed_months, p.planned_duration, p.status,
-            rs.schedule_score, rs.financial_score, rs.peer_score, rs.final_score, rs.risk_level,
-            r.status as review_status, r.id as review_id
+            rs.schedule_score, rs.financial_score, rs.peer_score, rs.divergence_score, rs.final_score, rs.risk_level,
+            rs.primary_signal, r.status as review_status, r.id as review_id
             FROM projects p
             LEFT JOIN risk_scores rs ON p.id=rs.project_id
             LEFT JOIN reviews r ON p.id=r.project_id
@@ -745,7 +748,7 @@ def export_projects(dataset_id: Optional[int] = None, risk_level: Optional[str] 
     clause, params = _build_project_query(dataset_id, risk_level, None, None, None, None, None, None)
     conn = get_db()
     rows = conn.execute(
-        f"""SELECT p.*, rs.schedule_score, rs.financial_score, rs.peer_score, rs.final_score, rs.risk_level, r.status as review_status
+        f"""SELECT p.*, rs.schedule_score, rs.financial_score, rs.peer_score, rs.divergence_score, rs.final_score, rs.risk_level, rs.primary_signal, r.status as review_status
             FROM projects p LEFT JOIN risk_scores rs ON p.id=rs.project_id LEFT JOIN reviews r ON p.id=r.project_id
             {clause} ORDER BY rs.final_score DESC""",
         params

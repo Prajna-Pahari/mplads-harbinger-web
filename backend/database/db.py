@@ -64,13 +64,15 @@ def init_db():
             schedule_score REAL DEFAULT 0,
             financial_score REAL DEFAULT 0,
             peer_score REAL DEFAULT 0,
+            divergence_score REAL DEFAULT 0,
             final_score REAL DEFAULT 0,
             risk_level TEXT DEFAULT 'LOW',
             primary_signal TEXT DEFAULT 'None',
-            schedule_weight REAL DEFAULT 0.35,
-            financial_weight REAL DEFAULT 0.40,
-            peer_weight REAL DEFAULT 0.25,
-            risk_engine_version TEXT DEFAULT '1.0',
+            schedule_weight REAL DEFAULT 0.30,
+            financial_weight REAL DEFAULT 0.30,
+            peer_weight REAL DEFAULT 0.20,
+            divergence_weight REAL DEFAULT 0.20,
+            risk_engine_version TEXT DEFAULT '2.0',
             analyzed_at TEXT DEFAULT (datetime('now'))
         );
 
@@ -127,10 +129,26 @@ def init_db():
 
         INSERT OR IGNORE INTO settings VALUES ('risk_low_threshold', '40', 'Score below this = LOW risk', datetime('now'));
         INSERT OR IGNORE INTO settings VALUES ('risk_medium_threshold', '70', 'Score below this = MEDIUM risk', datetime('now'));
-        INSERT OR IGNORE INTO settings VALUES ('schedule_weight', '0.35', 'Weight for schedule score', datetime('now'));
-        INSERT OR IGNORE INTO settings VALUES ('financial_weight', '0.40', 'Weight for financial score', datetime('now'));
-        INSERT OR IGNORE INTO settings VALUES ('peer_weight', '0.25', 'Weight for peer score', datetime('now'));
+        INSERT OR IGNORE INTO settings VALUES ('schedule_weight', '0.30', 'Weight for schedule score', datetime('now'));
+        INSERT OR IGNORE INTO settings VALUES ('financial_weight', '0.30', 'Weight for financial score', datetime('now'));
+        INSERT OR IGNORE INTO settings VALUES ('peer_weight', '0.20', 'Weight for peer score', datetime('now'));
+        INSERT OR IGNORE INTO settings VALUES ('divergence_weight', '0.20', 'Weight for divergence score', datetime('now'));
         INSERT OR IGNORE INTO settings VALUES ('peer_min_group_size', '3', 'Minimum group size for peer comparison', datetime('now'));
     """)
+
+    # Safe migration: ensure divergence_score and divergence_weight exist in existing databases
+    cur.execute("PRAGMA table_info(risk_scores)")
+    risk_cols = [r["name"] for r in cur.fetchall()]
+    if "divergence_score" not in risk_cols:
+        cur.execute("ALTER TABLE risk_scores ADD COLUMN divergence_score REAL DEFAULT 0")
+    if "divergence_weight" not in risk_cols:
+        cur.execute("ALTER TABLE risk_scores ADD COLUMN divergence_weight REAL DEFAULT 0.20")
+
+    # Update legacy default weights in settings table
+    cur.execute("UPDATE settings SET value='0.30', updated_at=datetime('now') WHERE key='schedule_weight' AND value='0.35'")
+    cur.execute("UPDATE settings SET value='0.30', updated_at=datetime('now') WHERE key='financial_weight' AND value='0.40'")
+    cur.execute("UPDATE settings SET value='0.20', updated_at=datetime('now') WHERE key='peer_weight' AND value='0.25'")
+    cur.execute("INSERT OR IGNORE INTO settings VALUES ('divergence_weight', '0.20', 'Weight for divergence score', datetime('now'))")
+
     conn.commit()
     conn.close()

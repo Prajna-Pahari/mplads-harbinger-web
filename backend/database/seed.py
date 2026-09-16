@@ -83,16 +83,19 @@ def seed_operational_db() -> Optional[int]:
 
         cur.execute(
             """INSERT INTO risk_scores
-               (project_id, dataset_id, schedule_score, financial_score, peer_score,
-                final_score, risk_level, primary_signal, schedule_weight, financial_weight, peer_weight)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+               (project_id, dataset_id, schedule_score, financial_score, peer_score, divergence_score,
+                final_score, risk_level, primary_signal, schedule_weight, financial_weight, peer_weight,
+                divergence_weight, risk_engine_version)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 proj_row_id, dataset_id,
                 risk.get("schedule_score", 0), risk.get("financial_score", 0),
-                risk.get("peer_score", 0), risk.get("final_score", 0),
-                risk.get("risk_level", "LOW"), risk.get("primary_signal", "None"),
-                risk.get("schedule_weight", 0.35), risk.get("financial_weight", 0.40),
-                risk.get("peer_weight", 0.25),
+                risk.get("peer_score", 0), risk.get("divergence_score", 0),
+                risk.get("final_score", 0), risk.get("risk_level", "LOW"),
+                risk.get("primary_signal", "None"),
+                risk.get("schedule_weight", 0.30), risk.get("financial_weight", 0.30),
+                risk.get("peer_weight", 0.20), risk.get("divergence_weight", 0.20),
+                risk.get("risk_engine_version", "2.0"),
             ),
         )
 

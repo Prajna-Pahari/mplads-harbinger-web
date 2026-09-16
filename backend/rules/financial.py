@@ -1,50 +1,25 @@
 """
-MPLADS Sentinel — Risk Rules: Financial-Progress Consistency
-Rules: FIN-001, FIN-002, FIN-003
+MPLADS Sentinel — Risk Rules: Financial Utilisation & Budget Consistency
+Rules: FIN-002, FIN-003
+(Note: Financial-vs-physical divergence is managed separately in rules/divergence.py via DIV-001)
 """
 from typing import Dict, Any, List
 
 
 def calculate_financial_score(project: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Calculates a financial-progress consistency score (0-100).
-    Higher score = more concern about financial vs physical progress mismatch.
+    Calculates a financial utilisation and budget consistency score (0-100).
+    Evaluates delayed utilisation and expenditure exceeding sanctioned budget.
     """
     alerts = []
     score = 0
 
     fin_util = project.get("financial_utilisation") or 0
-    phys_prog = project.get("physical_progress") or 0
     sanctioned = project.get("sanctioned_amount") or 0
     expenditure = project.get("expenditure") or 0
     elapsed = project.get("elapsed_months") or 0
     planned = project.get("planned_duration") or 1
     status = (project.get("status") or "").lower()
-
-    # FIN-001: High financial utilisation relative to low physical progress
-    if fin_util > 0 and phys_prog >= 0:
-        gap = fin_util - phys_prog
-        if gap > 20:
-            contribution = min(45, gap * 0.8)
-            score += contribution
-            alerts.append({
-                "rule_id": "FIN-001",
-                "rule_name": "Financial-Progress Mismatch",
-                "signal_type": "Financial / Progress",
-                "severity": "HIGH" if gap > 40 else "MEDIUM",
-                "evidence": {
-                    "financial_utilisation_pct": fin_util,
-                    "physical_progress_pct": phys_prog,
-                    "gap_pct": round(gap, 1),
-                },
-                "explanation": (
-                    f"Financial utilisation ({fin_util}%) is significantly higher than "
-                    f"physical progress ({phys_prog}%). "
-                    f"Gap of {round(gap,1)}% may indicate an unusual spending pattern. "
-                    "Requires human review."
-                ),
-                "score_contribution": round(contribution, 1),
-            })
 
     # FIN-002: Very low utilisation despite long elapsed time
     if elapsed >= 12 and fin_util < 30 and status not in ("completed",):
