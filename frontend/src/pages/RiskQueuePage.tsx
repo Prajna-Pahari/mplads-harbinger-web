@@ -103,7 +103,7 @@ export default function RiskQueuePage() {
                   <th>Category</th>
                   <th>Risk Score</th>
                   <th>Risk Level</th>
-                  <th>Primary Anomaly Signal</th>
+                  <th>Triggered Risk Signals</th>
                   <th>Exposure</th>
                   <th>Review Status</th>
                   <th></th>

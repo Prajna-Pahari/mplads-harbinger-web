@@ -41,13 +41,16 @@ def analyze_project(
     project: Dict[str, Any],
     all_projects: List[Dict[str, Any]],
     settings: Dict[str, str],
-    min_peer_group: int = 3,
+    min_peer_group: Optional[int] = None,
+    peer_indexes: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     Run all four risk checks on a single project and return the full risk result.
     Respects pre-calculated component scores if present in the project data.
     """
     weights = get_weights(settings)
+    if min_peer_group is None:
+        min_peer_group = int(settings.get("peer_min_group_size", 3))
     all_alerts = []
 
     # 1. Schedule Score
@@ -73,7 +76,7 @@ def analyze_project(
     if project.get("peer_score") is not None:
         s3 = float(project["peer_score"])
     else:
-        peer_result = calculate_peer_score(project, all_projects, min_peer_group)
+        peer_result = calculate_peer_score(project, all_projects, min_peer_group, indexes=peer_indexes)
         s3 = peer_result["score"]
         all_alerts.extend(peer_result["alerts"])
         peer_stats = peer_result.get("peer_stats")
@@ -95,7 +98,7 @@ def analyze_project(
         + s3 * weights["peer"]
         + s4 * weights["divergence"]
     )
-    final = round(min(100, final), 1)
+    final = round(min(100.0, max(0.0, final)), 1)
     risk_level = classify_risk(final, settings)
 
     # Generate Primary Signal based on component thresholds
@@ -137,11 +140,20 @@ def analyze_dataset(
     settings: Dict[str, str],
 ) -> List[Dict[str, Any]]:
     """
-    Analyze all projects in a dataset.
+    Analyze all projects in a dataset using pre-indexed peer lookup for O(N) performance.
     """
-    results = []
+    min_peer_group = int(settings.get("peer_min_group_size", 3))
+    from backend.rules.peer import build_peer_indexes
     projects_list = list(projects)
+    indexes = build_peer_indexes(projects_list)
+    results = []
     for project in projects_list:
-        result = analyze_project(project, projects_list, settings)
+        result = analyze_project(
+            project,
+            projects_list,
+            settings,
+            min_peer_group=min_peer_group,
+            peer_indexes=indexes,
+        )
         results.append(result)
     return results

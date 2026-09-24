@@ -1,22 +1,29 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Navbar from './components/Navbar'
-import { ToastContainer } from './components/UI'
+import { ToastContainer, LoadingState } from './components/UI'
 import LandingPage from './pages/LandingPage'
-import DashboardPage from './pages/DashboardPage'
-import ProjectsPage from './pages/ProjectsPage'
-import RiskQueuePage from './pages/RiskQueuePage'
-import ProjectInvestigationPage from './pages/ProjectInvestigationPage'
-import AnalyticsPage from './pages/AnalyticsPage'
-import ReviewsPage from './pages/ReviewsPage'
-import AuditLogsPage from './pages/AuditLogsPage'
-import SettingsPage from './pages/SettingsPage'
+
+const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+const ProjectsPage = lazy(() => import('./pages/ProjectsPage'))
+const RiskQueuePage = lazy(() => import('./pages/RiskQueuePage'))
+const ProjectInvestigationPage = lazy(() => import('./pages/ProjectInvestigationPage'))
+const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'))
+const ReviewsPage = lazy(() => import('./pages/ReviewsPage'))
+const AuditLogsPage = lazy(() => import('./pages/AuditLogsPage'))
+const SettingsPage = lazy(() => import('./pages/SettingsPage'))
+const CSVAnalyzerPage = lazy(() => import('./pages/CSVAnalyzerPage'))
 
 // Lazy stub pages for non-critical pages
 const ReportsPage = () => (
-  <div className="container py-20 text-center">
-    <p className="font-heading-3 text-ink mb-4">Reports</p>
-    <p className="text-muted mb-6">Report generation coming soon. Use CSV export for now.</p>
-    <a href="/api/export/projects" className="btn-primary">Export Full Dataset</a>
+  <div className="container py-20 text-center max-w-lg mx-auto">
+    <p className="font-heading-3 text-ink mb-3">Reports & Data Export</p>
+    <p className="text-muted text-sm sm:text-base mb-6 leading-relaxed">
+      Automated executive briefing and summary report generation is currently in development. Full operational project records, risk levels, and component scores are available for immediate CSV export.
+    </p>
+    <a href="/api/export/projects" className="btn-primary inline-flex items-center gap-2" download>
+      Export Project Dataset (CSV)
+    </a>
   </div>
 )
 
@@ -26,19 +33,22 @@ function App() {
       <div className="min-h-screen flex flex-col">
         <Navbar />
         <main className="flex-1">
-          <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/projects" element={<ProjectsPage />} />
-            <Route path="/risk-queue" element={<RiskQueuePage />} />
-            <Route path="/project/:id" element={<ProjectInvestigationPage />} />
-            <Route path="/analytics" element={<AnalyticsPage />} />
-            <Route path="/reviews" element={<ReviewsPage />} />
-            <Route path="/audit" element={<AuditLogsPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/reports" element={<ReportsPage />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <Suspense fallback={<div className="container py-20"><LoadingState label="Loading page…" /></div>}>
+            <Routes>
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/projects" element={<ProjectsPage />} />
+              <Route path="/risk-queue" element={<RiskQueuePage />} />
+              <Route path="/project/:id" element={<ProjectInvestigationPage />} />
+              <Route path="/analytics" element={<AnalyticsPage />} />
+              <Route path="/reviews" element={<ReviewsPage />} />
+              <Route path="/audit" element={<AuditLogsPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/csv-analyzer" element={<CSVAnalyzerPage />} />
+              <Route path="/reports" element={<ReportsPage />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
         </main>
         <ToastContainer />
       </div>

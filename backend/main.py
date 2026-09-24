@@ -1,5 +1,5 @@
 """
-MPLADS Sentinel — FastAPI Main Application
+MPLADS HARBINGER — FastAPI Main Application
 """
 import json
 import os
@@ -24,7 +24,7 @@ from backend.database.seed import seed_operational_db
 from backend.services.risk_service import analyze_dataset
 
 # --- App Setup ---
-app = FastAPI(title="MPLADS Sentinel API", version="1.0.0")
+app = FastAPI(title="MPLADS HARBINGER API", version="1.0.0")
 
 # CORS setup
 cors_origins_env = os.getenv("CORS_ORIGINS", "*")
@@ -38,8 +38,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Temp storage for parsed CSV data during workflow
+# Temp storage for parsed CSV data during workflow with TTL & eviction
 _session_store: Dict[str, Any] = {}
+SESSION_TTL_SECONDS = 30 * 60  # 30 minutes
+MAX_ACTIVE_SESSIONS = 20
+
+
+def _clean_expired_sessions():
+    """Removes sessions older than SESSION_TTL_SECONDS and limits active sessions to MAX_ACTIVE_SESSIONS."""
+    now = datetime.now()
+    expired = [
+        sid for sid, data in _session_store.items()
+        if (now - data.get("created_at", now)).total_seconds() > SESSION_TTL_SECONDS
+    ]
+    for sid in expired:
+        _session_store.pop(sid, None)
+
+    if len(_session_store) > MAX_ACTIVE_SESSIONS:
+        sorted_sessions = sorted(
+            _session_store.items(),
+            key=lambda item: item[1].get("last_accessed_at", item[1].get("created_at", datetime.min))
+        )
+        to_evict = len(_session_store) - MAX_ACTIVE_SESSIONS
+        for sid, _ in sorted_sessions[:to_evict]:
+            _session_store.pop(sid, None)
 
 
 @app.on_event("startup")
@@ -72,104 +94,115 @@ def _ensure_demo_dataset():
     seed_operational_db()
 
 
-def _ingest_csv(content: bytes, filename: str, dataset_type: str = "uploaded") -> int:
+def _ingest_csv(
+    content: bytes,
+    filename: str,
+    dataset_type: str = "uploaded",
+    mapping: Optional[Dict[str, Optional[str]]] = None,
+) -> int:
     """Parse, validate, normalize, analyze and store a CSV. Returns dataset_id."""
     from backend.services.csv_service import parse_csv, auto_map_columns, validate_dataframe, normalize_dataframe
     df, meta = parse_csv(content)
-    mapping = auto_map_columns(meta["columns"])
+    if mapping is None:
+        mapping = auto_map_columns(meta["columns"])
     validation = validate_dataframe(df, mapping)
     projects = normalize_dataframe(df, mapping)
     settings = _get_settings()
     risk_results = analyze_dataset(projects, settings)
 
     conn = get_db()
-    cur = conn.cursor()
+    try:
+        cur = conn.cursor()
 
-    # Insert dataset
-    cur.execute(
-        """INSERT INTO datasets (name, filename, file_size, row_count, column_count, dataset_type,
-           data_quality_score, analyzed_at, status) VALUES (?,?,?,?,?,?,?,?,?)""",
-        (
-            filename.replace(".csv", "").replace("_", " ").title(),
-            filename,
-            len(content),
-            meta["row_count"],
-            meta["column_count"],
-            dataset_type,
-            validation["data_quality_score"],
-            datetime.now().isoformat(),
-            "analyzed",
-        ),
-    )
-    dataset_id = cur.lastrowid
-
-    # Insert projects + risk
-    risk_map = {r["project_id"]: r for r in risk_results}
-
-    for p in projects:
-        pid_val = p.get("project_id") or f"AUTO-{hash(str(p))}"
+        # Insert dataset
         cur.execute(
-            """INSERT OR REPLACE INTO projects
-               (dataset_id, project_id, project_name, state, district, constituency, category,
-                sanctioned_amount, released_amount, expenditure, financial_utilisation,
-                physical_progress, start_date, expected_completion, actual_completion,
-                planned_duration, elapsed_months, status, location)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            """INSERT INTO datasets (name, filename, file_size, row_count, column_count, dataset_type,
+               data_quality_score, analyzed_at, status) VALUES (?,?,?,?,?,?,?,?,?)""",
             (
-                dataset_id, pid_val,
-                p.get("project_name"), p.get("state"), p.get("district"),
-                p.get("constituency"), p.get("category"),
-                p.get("sanctioned_amount"), p.get("released_amount"), p.get("expenditure"),
-                p.get("financial_utilisation"), p.get("physical_progress"),
-                p.get("start_date"), p.get("expected_completion"), p.get("actual_completion"),
-                p.get("planned_duration"), p.get("elapsed_months"),
-                p.get("status"), p.get("location"),
+                filename.replace(".csv", "").replace("_", " ").title(),
+                filename,
+                len(content),
+                meta["row_count"],
+                meta["column_count"],
+                dataset_type,
+                validation["data_quality_score"],
+                datetime.now().isoformat(),
+                "analyzed",
             ),
         )
-        proj_row_id = cur.lastrowid
-        risk = risk_map.get(pid_val, {})
+        dataset_id = cur.lastrowid
 
-        cur.execute(
-            """INSERT INTO risk_scores
-               (project_id, dataset_id, schedule_score, financial_score, peer_score, divergence_score,
-                final_score, risk_level, primary_signal, schedule_weight, financial_weight, peer_weight,
-                divergence_weight, risk_engine_version)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-            (
-                proj_row_id, dataset_id,
-                risk.get("schedule_score", 0), risk.get("financial_score", 0),
-                risk.get("peer_score", 0), risk.get("divergence_score", 0),
-                risk.get("final_score", 0), risk.get("risk_level", "LOW"),
-                risk.get("primary_signal", "None"),
-                risk.get("schedule_weight", 0.30), risk.get("financial_weight", 0.30),
-                risk.get("peer_weight", 0.20), risk.get("divergence_weight", 0.20),
-                risk.get("risk_engine_version", "2.0"),
-            ),
-        )
+        # Insert projects + risk
+        risk_map = {r["project_id"]: r for r in risk_results}
 
-        # Insert alerts
-        for alert in risk.get("alerts", []):
+        for p in projects:
+            pid_val = p.get("project_id") or f"AUTO-{hash(str(p))}"
             cur.execute(
-                """INSERT INTO risk_alerts
-                   (project_id, dataset_id, rule_id, rule_name, signal_type, severity,
-                    evidence, explanation, score_contribution)
-                   VALUES (?,?,?,?,?,?,?,?,?)""",
+                """INSERT OR REPLACE INTO projects
+                   (dataset_id, project_id, project_name, state, district, constituency, category,
+                    sanctioned_amount, released_amount, expenditure, financial_utilisation,
+                    physical_progress, start_date, expected_completion, actual_completion,
+                    planned_duration, elapsed_months, status, location)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    dataset_id, pid_val,
+                    p.get("project_name"), p.get("state"), p.get("district"),
+                    p.get("constituency"), p.get("category"),
+                    p.get("sanctioned_amount"), p.get("released_amount"), p.get("expenditure"),
+                    p.get("financial_utilisation"), p.get("physical_progress"),
+                    p.get("start_date"), p.get("expected_completion"), p.get("actual_completion"),
+                    p.get("planned_duration"), p.get("elapsed_months"),
+                    p.get("status"), p.get("location"),
+                ),
+            )
+            proj_row_id = cur.lastrowid
+            risk = risk_map.get(pid_val, {})
+
+            cur.execute(
+                """INSERT INTO risk_scores
+                   (project_id, dataset_id, schedule_score, financial_score, peer_score, divergence_score,
+                    final_score, risk_level, primary_signal, schedule_weight, financial_weight, peer_weight,
+                    divergence_weight, risk_engine_version)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     proj_row_id, dataset_id,
-                    alert["rule_id"], alert["rule_name"], alert["signal_type"],
-                    alert["severity"], json.dumps(alert.get("evidence", {})),
-                    alert.get("explanation", ""), alert.get("score_contribution", 0),
+                    risk.get("schedule_score", 0), risk.get("financial_score", 0),
+                    risk.get("peer_score", 0), risk.get("divergence_score", 0),
+                    risk.get("final_score", 0), risk.get("risk_level", "LOW"),
+                    risk.get("primary_signal", "None"),
+                    risk.get("schedule_weight", 0.30), risk.get("financial_weight", 0.30),
+                    risk.get("peer_weight", 0.20), risk.get("divergence_weight", 0.20),
+                    risk.get("risk_engine_version", "2.0"),
                 ),
             )
 
-        # Create unreviewed review record
-        cur.execute(
-            "INSERT INTO reviews (project_id, dataset_id, status) VALUES (?,?,?)",
-            (proj_row_id, dataset_id, "UNREVIEWED"),
-        )
+            # Insert alerts
+            for alert in risk.get("alerts", []):
+                cur.execute(
+                    """INSERT INTO risk_alerts
+                       (project_id, dataset_id, rule_id, rule_name, signal_type, severity,
+                        evidence, explanation, score_contribution)
+                       VALUES (?,?,?,?,?,?,?,?,?)""",
+                    (
+                        proj_row_id, dataset_id,
+                        alert["rule_id"], alert["rule_name"], alert["signal_type"],
+                        alert["severity"], json.dumps(alert.get("evidence", {})),
+                        alert.get("explanation", ""), alert.get("score_contribution", 0),
+                    ),
+                )
 
-    conn.commit()
-    conn.close()
+            # Create unreviewed review record
+            cur.execute(
+                "INSERT INTO reviews (project_id, dataset_id, status) VALUES (?,?,?)",
+                (proj_row_id, dataset_id, "UNREVIEWED"),
+            )
+
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(500, f"Failed to ingest dataset: {str(e)}")
+    finally:
+        conn.close()
 
     _log_audit("Dataset Ingested", f"Dataset '{filename}' processed. {len(projects)} projects, {len(risk_results)} risk scores.", dataset_id=dataset_id)
     return dataset_id
@@ -222,6 +255,7 @@ def delete_dataset(dataset_id: int):
 
 @app.post("/api/csv/upload")
 async def upload_csv(file: UploadFile = File(...)):
+    _clean_expired_sessions()
     from backend.services.csv_service import parse_csv, auto_map_columns
     if not file.filename.endswith(".csv"):
         raise HTTPException(400, "Only .csv files are supported.")
@@ -233,7 +267,17 @@ async def upload_csv(file: UploadFile = File(...)):
     df, meta = parse_csv(content)
     mapping = auto_map_columns(meta["columns"])
     session_id = f"upload_{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
-    _session_store[session_id] = {"content": content, "df": df, "meta": meta, "mapping": mapping, "filename": file.filename}
+    now = datetime.now()
+    _session_store[session_id] = {
+        "content": content,
+        "df": df,
+        "meta": meta,
+        "mapping": mapping,
+        "filename": file.filename,
+        "created_at": now,
+        "last_accessed_at": now,
+    }
+    _clean_expired_sessions()
     _log_audit("CSV Uploaded", f"File '{file.filename}' uploaded. {meta['row_count']} rows, {meta['column_count']} columns.")
     return {
         "session_id": session_id,
@@ -248,21 +292,25 @@ async def upload_csv(file: UploadFile = File(...)):
 
 @app.get("/api/csv/{session_id}/preview")
 def csv_preview(session_id: str, rows: int = 10):
+    _clean_expired_sessions()
     from backend.services.csv_service import get_preview
     s = _session_store.get(session_id)
     if not s:
         raise HTTPException(404, "Session not found or expired.")
+    s["last_accessed_at"] = datetime.now()
     preview = get_preview(s["df"], rows)
     return {"columns": s["meta"]["columns"], "rows": preview}
 
 
 @app.post("/api/csv/{session_id}/validate")
 def csv_validate(session_id: str, mapping: Dict[str, Optional[str]]):
+    _clean_expired_sessions()
     from backend.services.csv_service import validate_dataframe
     s = _session_store.get(session_id)
     if not s:
-        raise HTTPException(404, "Session not found.")
+        raise HTTPException(404, "Session not found or expired.")
     s["mapping"] = mapping
+    s["last_accessed_at"] = datetime.now()
     validation = validate_dataframe(s["df"], mapping)
     _log_audit("Validation Completed", f"Session {session_id}: quality {validation['data_quality_score']}%")
     return validation
@@ -270,11 +318,13 @@ def csv_validate(session_id: str, mapping: Dict[str, Optional[str]]):
 
 @app.post("/api/csv/{session_id}/analyze")
 def csv_analyze(session_id: str):
+    _clean_expired_sessions()
     s = _session_store.get(session_id)
     if not s:
-        raise HTTPException(404, "Session not found.")
-    dataset_id = _ingest_csv(s["content"], s["filename"])
-    del _session_store[session_id]
+        raise HTTPException(404, "Session not found or expired.")
+    dataset_id = _ingest_csv(s["content"], s["filename"], mapping=s.get("mapping"))
+    if session_id in _session_store:
+        del _session_store[session_id]
     return {"dataset_id": dataset_id, "message": "Analysis complete. Dataset stored."}
 
 
@@ -347,6 +397,20 @@ def _build_project_query(
     return clause, params
 
 
+PROJECT_SORT_COLUMNS = {
+    "project_id": "p.project_id",
+    "project_name": "p.project_name",
+    "state": "p.state",
+    "financial_utilisation": "p.financial_utilisation",
+    "physical_progress": "p.physical_progress",
+    "final_score": "rs.final_score",
+    "schedule_score": "rs.schedule_score",
+    "financial_score": "rs.financial_score",
+    "peer_score": "rs.peer_score",
+    "divergence_score": "rs.divergence_score",
+}
+
+
 @app.get("/api/projects")
 def list_projects(
     dataset_id: Optional[int] = None,
@@ -363,7 +427,7 @@ def list_projects(
     sort_dir: str = "desc",
 ):
     clause, params = _build_project_query(dataset_id, risk_level, state, district, category, status, search, review_status)
-    safe_sort = sort_by if sort_by in ("final_score", "project_id", "project_name", "state", "financial_utilisation", "physical_progress") else "final_score"
+    order_col = PROJECT_SORT_COLUMNS.get(sort_by, "rs.final_score")
     safe_dir = "DESC" if sort_dir.lower() == "desc" else "ASC"
 
     conn = get_db()
@@ -379,7 +443,7 @@ def list_projects(
             LEFT JOIN risk_scores rs ON p.id=rs.project_id
             LEFT JOIN reviews r ON p.id=r.project_id
             {clause}
-            ORDER BY rs.{safe_sort} {safe_dir}
+            ORDER BY {order_col} {safe_dir}
             LIMIT ? OFFSET ?""",
         params + [page_size, (page - 1) * page_size]
     ).fetchall()
@@ -437,19 +501,34 @@ def get_project_peers(project_id: int):
     conn = get_db()
     proj = conn.execute("SELECT * FROM projects WHERE id=?", (project_id,)).fetchone()
     if not proj:
+        conn.close()
         raise HTTPException(404, "Project not found")
 
     proj = dict(proj)
-    peers = conn.execute(
+    dataset_id = proj["dataset_id"]
+
+    candidates = conn.execute(
         """SELECT p.*, rs.final_score, rs.risk_level
            FROM projects p
            LEFT JOIN risk_scores rs ON p.id=rs.project_id
-           WHERE p.category=? AND p.id!=? AND p.dataset_id=?
-           LIMIT 20""",
-        (proj["category"], project_id, proj["dataset_id"]),
+           WHERE p.dataset_id=?""",
+        (dataset_id,),
     ).fetchall()
     conn.close()
-    return {"project": proj, "peers": [dict(p) for p in peers]}
+
+    candidate_list = [dict(c) for c in candidates]
+    settings = _get_settings()
+    min_peer_group = int(settings.get("peer_min_group_size", 3))
+
+    from backend.rules.peer import get_peer_cohort
+    peers, group_desc = get_peer_cohort(proj, candidate_list, min_group_size=min_peer_group)
+
+    return {
+        "project": proj,
+        "peers": peers[:20],
+        "peer_group_description": group_desc,
+        "peer_group_size": len(peers),
+    }
 
 
 # ─── Risk Queue ───────────────────────────────────────────────────────────────
@@ -512,10 +591,22 @@ def analytics_summary(dataset_id: Optional[int] = None):
     clause = "WHERE p.dataset_id=?" if dataset_id else ""
     params = [dataset_id] if dataset_id else []
 
-    total = conn.execute(f"SELECT COUNT(*) FROM projects p {clause}", params).fetchone()[0]
-    high = conn.execute(f"SELECT COUNT(*) FROM projects p LEFT JOIN risk_scores rs ON p.id=rs.project_id {clause + (' AND' if clause else 'WHERE')} rs.risk_level='HIGH'", params).fetchone()[0]
-    medium = conn.execute(f"SELECT COUNT(*) FROM projects p LEFT JOIN risk_scores rs ON p.id=rs.project_id {clause + (' AND' if clause else 'WHERE')} rs.risk_level='MEDIUM'", params).fetchone()[0]
-    low = conn.execute(f"SELECT COUNT(*) FROM projects p LEFT JOIN risk_scores rs ON p.id=rs.project_id {clause + (' AND' if clause else 'WHERE')} rs.risk_level='LOW'", params).fetchone()[0]
+    # Consolidated counts in a single table scan
+    counts = conn.execute(
+        f"""SELECT
+            COUNT(*) as total,
+            SUM(CASE WHEN rs.risk_level='HIGH' THEN 1 ELSE 0 END) as high,
+            SUM(CASE WHEN rs.risk_level='MEDIUM' THEN 1 ELSE 0 END) as medium,
+            SUM(CASE WHEN rs.risk_level='LOW' THEN 1 ELSE 0 END) as low
+            FROM projects p
+            LEFT JOIN risk_scores rs ON p.id=rs.project_id
+            {clause}""",
+        params
+    ).fetchone()
+    total = counts["total"] or 0
+    high = counts["high"] or 0
+    medium = counts["medium"] or 0
+    low = counts["low"] or 0
 
     fin_stats = conn.execute(
         f"""SELECT AVG(p.financial_utilisation) as avg_fin, AVG(p.physical_progress) as avg_prog,
@@ -579,6 +670,15 @@ def analytics_summary(dataset_id: Optional[int] = None):
 
     conn.close()
 
+    scatter_rows = [dict(r) for r in scatter]
+    MAX_SCATTER_POINTS = 500
+    if len(scatter_rows) > MAX_SCATTER_POINTS:
+        # Deterministic uniform stride sampling to preserve overall distribution
+        stride = len(scatter_rows) / MAX_SCATTER_POINTS
+        sampled_scatter = [scatter_rows[int(i * stride)] for i in range(MAX_SCATTER_POINTS)]
+    else:
+        sampled_scatter = scatter_rows
+
     return {
         "total_projects": total,
         "high_risk": high,
@@ -595,7 +695,7 @@ def analytics_summary(dataset_id: Optional[int] = None):
             {"range": f"{i*10}–{i*10+10}", "count": dict(score_dist).get(f"s{i*10}", 0) or 0}
             for i in range(10)
         ],
-        "scatter_data": [dict(r) for r in scatter],
+        "scatter_data": sampled_scatter,
         "state_risk": [dict(r) for r in state_risk],
     }
 
@@ -762,7 +862,7 @@ def export_projects(dataset_id: Optional[int] = None, risk_level: Optional[str] 
         writer.writerows([dict(r) for r in rows])
 
     output.seek(0)
-    filename = f"mplads_sentinel_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    filename = f"mplads_harbinger_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv",
@@ -778,6 +878,8 @@ if _dist_path.exists() and (_dist_path / "index.html").exists():
 
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
+        if full_path.startswith("api/") or full_path == "api":
+            raise HTTPException(404, "API endpoint not found")
         file_path = _dist_path / full_path
         if file_path.exists() and file_path.is_file():
             return FileResponse(file_path)

@@ -3,6 +3,26 @@
 const API_HOST = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '')
 const BASE = `${API_HOST}/api`
 
+export function formatApiError(err: any, status: number, statusText?: string): string {
+  if (!err) return `HTTP ${status}${statusText ? `: ${statusText}` : ''}`
+  if (typeof err === 'string') return err
+  if (typeof err.detail === 'string') return err.detail
+  if (Array.isArray(err.detail)) {
+    return err.detail
+      .map((d: any) => {
+        if (!d) return ''
+        const field = d.loc && Array.isArray(d.loc)
+          ? d.loc.filter((x: any) => x !== 'body').join('.')
+          : ''
+        return field ? `Field "${field}": ${d.msg}` : (d.msg || JSON.stringify(d))
+      })
+      .filter(Boolean)
+      .join('; ')
+  }
+  if (err.message && typeof err.message === 'string') return err.message
+  return `HTTP ${status}${statusText ? `: ${statusText}` : ''}`
+}
+
 async function request<T>(path: string, opts?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     headers: { 'Content-Type': 'application/json', ...opts?.headers },
@@ -10,7 +30,7 @@ async function request<T>(path: string, opts?: RequestInit): Promise<T> {
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }))
-    throw new Error(err.detail || `HTTP ${res.status}`)
+    throw new Error(formatApiError(err, res.status, res.statusText))
   }
   return res.json()
 }

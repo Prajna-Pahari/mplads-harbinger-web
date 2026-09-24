@@ -150,5 +150,20 @@ def init_db():
     cur.execute("UPDATE settings SET value='0.20', updated_at=datetime('now') WHERE key='peer_weight' AND value='0.25'")
     cur.execute("INSERT OR IGNORE INTO settings VALUES ('divergence_weight', '0.20', 'Weight for divergence score', datetime('now'))")
 
+    # Secondary indexes for query optimization
+    cur.executescript("""
+        CREATE INDEX IF NOT EXISTS idx_projects_dataset ON projects(dataset_id);
+        CREATE INDEX IF NOT EXISTS idx_risk_scores_project ON risk_scores(project_id);
+        CREATE INDEX IF NOT EXISTS idx_risk_scores_dataset ON risk_scores(dataset_id);
+        CREATE INDEX IF NOT EXISTS idx_risk_scores_final ON risk_scores(final_score DESC);
+        CREATE INDEX IF NOT EXISTS idx_risk_scores_level ON risk_scores(risk_level);
+        CREATE INDEX IF NOT EXISTS idx_risk_alerts_project ON risk_alerts(project_id);
+        CREATE INDEX IF NOT EXISTS idx_risk_alerts_dataset ON risk_alerts(dataset_id);
+        CREATE INDEX IF NOT EXISTS idx_reviews_project ON reviews(project_id);
+        CREATE INDEX IF NOT EXISTS idx_reviews_dataset ON reviews(dataset_id);
+        CREATE INDEX IF NOT EXISTS idx_reviews_status ON reviews(status);
+        CREATE INDEX IF NOT EXISTS idx_audit_logs_project ON audit_logs(project_id);
+    """)
+
     conn.commit()
     conn.close()

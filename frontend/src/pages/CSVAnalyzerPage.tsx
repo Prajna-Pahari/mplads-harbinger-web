@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Upload, CheckCircle2, AlertCircle, Info, ArrowRight, ArrowLeft, RefreshCw, FileText } from 'lucide-react'
 import { LoadingState, ProgressBar, ErrorState } from '../components/UI'
+import { formatApiError } from '../lib/api'
 
 const API_HOST = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '')
 const BASE = `${API_HOST}/api`
@@ -13,7 +14,7 @@ async function csvRequest<T>(path: string, opts?: RequestInit): Promise<T> {
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }))
-    throw new Error(err.detail || `HTTP ${res.status}`)
+    throw new Error(formatApiError(err, res.status, res.statusText))
   }
   return res.json()
 }
@@ -25,7 +26,7 @@ const csvApi = {
     const res = await fetch(`${BASE}/csv/upload`, { method: 'POST', body: form })
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: res.statusText }))
-      throw new Error(err.detail || `HTTP ${res.status}`)
+      throw new Error(formatApiError(err, res.status, res.statusText))
     }
     return res.json()
   },

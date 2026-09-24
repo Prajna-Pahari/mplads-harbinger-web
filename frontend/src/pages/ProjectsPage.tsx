@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Download, ExternalLink, RefreshCw, Filter } from 'lucide-react'
+import { useNavigate, useSearchParams, NavLink } from 'react-router-dom'
+import { Download, ExternalLink, RefreshCw, Filter, Upload } from 'lucide-react'
 import { api } from '../lib/api'
 import { fmtCurrency, fmtPct, truncate } from '../lib/utils'
 import { RiskBadge, ReviewStatusBadge, LoadingState, ErrorState, FilterPill } from '../components/UI'
@@ -62,6 +62,9 @@ export default function ProjectsPage() {
           <p className="text-muted text-[13px] sm:text-[14px] mt-1">{projects?.total ?? 0} total works in database</p>
         </div>
         <div className="flex items-center gap-2">
+          <NavLink to="/csv-analyzer" className="btn-primary btn-sm gap-1.5 flex-1 sm:flex-initial no-underline">
+            <Upload size={13} /> Import CSV
+          </NavLink>
           <button onClick={() => api.export.projects(datasets[0]?.id)} className="btn-outline btn-sm gap-1.5 flex-1 sm:flex-initial">
             <Download size={13} /> Export CSV
           </button>

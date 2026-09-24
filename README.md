@@ -36,7 +36,7 @@ $$\text{Detect} \longrightarrow \text{Prioritise} \longrightarrow \text{Explain}
 6. **Investigation Console:** Surfaces project-level breakdowns, peer cohorts, and historical timelines.
 7. **Human Review & Audit:** Tracks officer determinations and maintains accountability logs.
 
-> **Note on Architecture:** Experimental dataset testing, ad-hoc CSV ingestion, and schema mapping are isolated in the separate **MPLADS HARBINGER DATA LAB** workspace. The core HARBINGER application is strictly dedicated to operational monitoring and investigation.
+> **Note on Architecture:** Exploratory sandbox dataset testing and analytical experimentation are isolated in the separate **MPLADS HARBINGER DATA LAB** workspace. The core HARBINGER application provides production monitoring, triage, review workflows, and an operational CSV ingestion & analysis workflow (`/csv-analyzer`).
 
 ---
 
@@ -45,10 +45,10 @@ $$\text{Detect} \longrightarrow \text{Prioritise} \longrightarrow \text{Explain}
 HARBINGER evaluates projects across four independent risk signals:
 
 | Signal Component | Focus Area | Key Indicators | Default Weight |
-| :--- | :--- | :--- | :---: |
+| :--- | :--- | :--- | :--- |
 | **1. Schedule Deviation** | Implementation Timelines | Unstarted sanctioned works, milestones exceeding planned duration | **30%** |
 | **2. Financial Utilisation** | Budget & Expenditure | Low fund absorption after prolonged elapsed time, expenditures exceeding sanctioned budget | **30%** |
-| **3. Peer Outlier** | Statistical Cost Anomalies | Cohort Z-score cost analysis relative to similar sector and district works | **20%** |
+| **3. Peer Outlier** | Statistical Progress Anomalies | Cohort Z-score comparison of financial utilisation and physical progress relative to similar sector works | **20%** |
 | **4. Financial–Physical Divergence** | Progress Alignment | Financial utilisation substantially outpacing reported physical progress | **20%** |
 
 ### Composite Risk Scoring & Classification
@@ -78,14 +78,15 @@ $$\text{Final Score} = (\text{Schedule} \times 0.30) + (\text{Financial} \times 
 | :--- | :--- | :--- |
 | `/` | Landing Page | Strategic overview of HARBINGER risk intelligence and monitoring principles |
 | `/dashboard` | Executive Dashboard | Operational KPI metrics, risk level distributions, and state-level geographic summaries |
-| `/projects` | Master Projects Table | Searchable, filterable project registry with multi-column sorting |
+| `/projects` | Master Projects Table | Searchable, filterable project registry with multi-column sorting and CSV import/export |
 | `/risk-queue` | Priority Risk Queue | Triage queue sorting elevated risk works requiring administrative attention |
 | `/project/:id` | Project Investigation | Deep-dive console featuring the **WHY FLAGGED?** breakdown, peer comparison, and timeline |
 | `/analytics` | Risk Analytics | Financial absorption charts, physical vs financial scatter plots, and score distributions |
 | `/reviews` | Review Workflow | Official review queue with priority tagging, reviewer assignment, and comments |
 | `/audit` | Audit Log | Immutable system log tracking status changes, administrative actions, and review updates |
 | `/settings` | Settings & Thresholds | Configurable threshold adjustments and risk engine weight rebalancing |
-| `/reports` | Briefing Reports | Exportable operational summaries and executive briefings |
+| `/csv-analyzer` | CSV Analyzer | Multi-step CSV ingestion, column mapping, validation, and multi-signal risk analysis |
+| `/reports` | Data Export & Briefings | Operational data export console (CSV dataset export; executive reporting in development) |
 
 ---
 
@@ -114,10 +115,10 @@ MPLADS-main/
 │   │   └── divergence.py       # Financial–Physical Divergence rule (DIV-001)
 │   └── services/
 │       ├── risk_service.py     # 4-signal risk engine orchestration and scoring
-│       └── csv_service.py      # Retained internal parsing utilities (non-operational)
+│       └── csv_service.py      # CSV parsing, preview, column mapping, and validation service
 ├── frontend/
 │   ├── src/
-│   │   ├── pages/              # 10 operational page views
+│   │   ├── pages/              # 11 operational page views (including CSVAnalyzerPage)
 │   │   ├── components/         # Reusable navigation, risk badges, charts, and modals
 │   │   ├── lib/                # API client and formatting utilities
 │   │   └── types/              # TypeScript data interfaces and alert schemas
@@ -184,7 +185,7 @@ HARBINGER is designed to deploy as a single unified service (e.g., Render, Railw
 4. **Review "WHY FLAGGED?":** Observe the exact quantitative breakdown across all four signals:
    - Schedule deviation ratio
    - Financial utilisation percentage
-   - Statistical cost deviation vs cohort peers
+   - Statistical deviation of financial utilisation and physical progress vs peer cohort
    - Financial–Physical Divergence (`DIV-001`: financial progress substantially outpacing physical progress)
 5. **Contextual Deep-Dive:** Review the milestone timeline, expenditure milestones, and peer distribution charts.
 6. **Human-in-the-Loop Action:** Navigate to the **Review** tab to assign an investigating officer, update status, and log review findings.

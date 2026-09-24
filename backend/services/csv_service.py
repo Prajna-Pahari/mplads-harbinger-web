@@ -68,6 +68,28 @@ def get_preview(df: pd.DataFrame, rows: int = 10) -> List[Dict]:
     return df.head(rows).fillna("").to_dict(orient="records")
 
 
+def _parse_numeric_value(val: Any, is_percentage: bool = False) -> Tuple[bool, Optional[float], bool]:
+    """
+    Parses a single raw cell value.
+    Returns: (is_blank, parsed_float, is_malformed)
+    """
+    if pd.isna(val):
+        return True, None, False
+    s = str(val).strip()
+    if s == "" or s.lower() in ("nan", "none", "null", "n/a", "na", "-"):
+        return True, None, False
+
+    clean = re.sub(r"[₹,$, ]", "", s)
+    if is_percentage or clean.endswith("%"):
+        clean = clean.replace("%", "").strip()
+
+    try:
+        f = float(clean)
+        return False, f, False
+    except ValueError:
+        return False, None, True
+
+
 def validate_dataframe(df: pd.DataFrame, mapping: Dict[str, Optional[str]]) -> Dict[str, Any]:
     """Validate the dataset and return quality report."""
     issues = []
@@ -92,22 +114,58 @@ def validate_dataframe(df: pd.DataFrame, mapping: Dict[str, Optional[str]]) -> D
     for field in ["sanctioned_amount", "released_amount", "expenditure"]:
         col = mapping.get(field)
         if col and col in df.columns:
-            numeric = pd.to_numeric(df[col], errors="coerce")
-            neg = (numeric < 0).sum()
+            malformed = 0
+            neg = 0
+            for val in df[col]:
+                is_blank, num, is_malformed = _parse_numeric_value(val)
+                if is_malformed:
+                    malformed += 1
+                elif num is not None and num < 0:
+                    neg += 1
+            if malformed:
+                issues.append({"type": "INVALID", "field": field, "message": f"{malformed} malformed non-numeric values in {field}.", "count": malformed})
             if neg:
-                issues.append({"type": "WARNING", "field": field, "message": f"{neg} negative values in {field}.", "count": int(neg)})
+                issues.append({"type": "WARNING", "field": field, "message": f"{neg} negative values in {field}.", "count": neg})
 
     # Validate percentages
     for field in ["financial_utilisation", "physical_progress"]:
         col = mapping.get(field)
         if col and col in df.columns:
-            numeric = pd.to_numeric(df[col], errors="coerce")
-            over_100 = (numeric > 100).sum()
-            negative = (numeric < 0).sum()
+            malformed = 0
+            negative = 0
+            over_100 = 0
+            for val in df[col]:
+                is_blank, num, is_malformed = _parse_numeric_value(val, is_percentage=True)
+                if is_malformed:
+                    malformed += 1
+                elif num is not None:
+                    if num < 0:
+                        negative += 1
+                    elif num > 100:
+                        over_100 += 1
+            if malformed:
+                issues.append({"type": "INVALID", "field": field, "message": f"{malformed} malformed non-numeric values in {field}.", "count": malformed})
             if over_100:
-                warnings.append({"type": "WARNING", "field": field, "message": f"{over_100} values exceed 100% in {field}.", "count": int(over_100)})
+                warnings.append({"type": "WARNING", "field": field, "message": f"{over_100} values exceed 100% in {field}.", "count": over_100})
             if negative:
-                issues.append({"type": "INVALID", "field": field, "message": f"{negative} negative percentage values in {field}.", "count": int(negative)})
+                issues.append({"type": "INVALID", "field": field, "message": f"{negative} negative percentage values in {field}.", "count": negative})
+
+    # Validate duration fields
+    for field in ["planned_duration", "elapsed_months"]:
+        col = mapping.get(field)
+        if col and col in df.columns:
+            malformed = 0
+            neg = 0
+            for val in df[col]:
+                is_blank, num, is_malformed = _parse_numeric_value(val)
+                if is_malformed:
+                    malformed += 1
+                elif num is not None and num < 0:
+                    neg += 1
+            if malformed:
+                issues.append({"type": "INVALID", "field": field, "message": f"{malformed} malformed non-numeric values in {field}.", "count": malformed})
+            if neg:
+                issues.append({"type": "WARNING", "field": field, "message": f"{neg} negative values in {field}.", "count": neg})
 
     # Validate dates
     for field in ["start_date", "expected_completion", "actual_completion"]:
@@ -163,19 +221,13 @@ def normalize_dataframe(df: pd.DataFrame, mapping: Dict[str, Optional[str]]) -> 
                 val = str(raw_val).strip()
 
                 # Numeric fields
-                if field in ("sanctioned_amount", "released_amount", "expenditure", "planned_duration", "elapsed_months", "schedule_score", "financial_score", "peer_score"):
-                    try:
-                        val_clean = re.sub(r"[₹,$, ]", "", val)
-                        project[field] = float(val_clean)
-                    except Exception:
-                        project[field] = None
+                if field in ("sanctioned_amount", "released_amount", "expenditure", "planned_duration", "elapsed_months", "schedule_score", "financial_score", "peer_score", "divergence_score"):
+                    _, num, _ = _parse_numeric_value(raw_val)
+                    project[field] = num
 
                 elif field in ("financial_utilisation", "physical_progress"):
-                    try:
-                        val_clean = val.replace("%", "").strip()
-                        project[field] = float(val_clean)
-                    except Exception:
-                        project[field] = None
+                    _, num, _ = _parse_numeric_value(raw_val, is_percentage=True)
+                    project[field] = num
 
                 elif field in ("start_date", "expected_completion", "actual_completion"):
                     try:

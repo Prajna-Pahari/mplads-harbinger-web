@@ -7,6 +7,7 @@ const FOOTER_LINKS = {
     { label: 'Projects', to: '/projects' },
     { label: 'Risk Queue', to: '/risk-queue' },
     { label: 'Analytics', to: '/analytics' },
+    { label: 'CSV Analyzer', to: '/csv-analyzer' },
     { label: 'Reports', to: '/reports' },
   ],
   Governance: [
